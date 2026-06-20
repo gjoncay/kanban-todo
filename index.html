@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Riso Board — Kanban</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,500..900,0..100,0..1&family=Grand+Hotel&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* paper + ink */
+    --board:   #E6E3D9;   /* warm fog board stock */
+    --card:    #F7F5EE;   /* warm card paper  */
+    --ink:     #1B1A17;   /* near-black ink   */
+    --ink-soft:#6C6A60;
+
+    /* the inn signboard up top */
+    --evergreen: #243528;  /* deep PNW fir   */
+    --sign-edge: #3B2C20;  /* cedar trim     */
+    --sign-cream:#F2E7CE;  /* painted lettering */
+    --lantern:   #E0A24B;  /* amber lamplight */
+
+    /* who's on it */
+    --who-soph:    #C24E86;  /* berry  */
+    --who-grant:   #2C7A7B;  /* teal   */
+    --who-grophie: #B5683C;  /* both — warm cedar */
+    --who-either:  #6C6A60;  /* either — neutral ink */
+
+    /* riso inks — the category palette */
+    --riso-pink:   #FF4C98;  /* Cats     */
+    --riso-blue:   #1C72C4;  /* Vacation */
+    --riso-purple: #7C5CC4;  /* Work     */
+    --riso-orange: #F2682C;  /* House    */
+    --riso-green:  #0E9E63;  /* Chores   */
+    --riso-yellow: #E9B500;  /* Life     */
+    --riso-teal:   #138086;  /* Finance  */
+    --riso-red:    #E0334B;
+    --riso-brown:  #8A5A33;
+    --riso-navy:   #2E4374;
+
+    --radius: 4px;
+    --gap: 18px;
+    --shadow-pin: 2px 3px 0 rgba(27,26,23,.18);
+    --shadow-lift: 0 14px 28px rgba(27,26,23,.28), 3px 4px 0 rgba(27,26,23,.18);
+    font-synthesis: none;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background-color: var(--board);
+    color: var(--ink);
+    font-family: "Spline Sans Mono", ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+  button { touch-action: manipulation; }
+
+  /* riso grain + faint ink lines layered over everything */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: multiply;
+    opacity: .35;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    position: relative;
+    padding: 46px clamp(18px, 5vw, 64px) 34px;
+    color: var(--sign-cream);
+    background-color: var(--evergreen);
+    background-image:
+      /* lantern glow, upper-left */
+      radial-gradient(130% 100% at 16% -20%, rgba(224,162,75,.22), transparent 56%),
+      /* faint vertical wood grain */
+      repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 7px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 13px);
+    border-bottom: 5px solid var(--sign-edge);
+    box-shadow: inset 0 0 70px rgba(0,0,0,.40);
+  }
+  /* routed painted border, set in from the edge like a carved sign */
+  header.masthead::after {
+    content: "";
+    position: absolute;
+    inset: 11px;
+    border: 2px solid rgba(242,231,206,.30);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  .masthead-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .wordmark { line-height: .86; }
+
+  .eyebrow {
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 11px;
+    letter-spacing: .42em;
+    text-transform: uppercase;
+    color: rgba(242,231,206,.62);
+    margin: 0 0 12px 3px;
+  }
+
+  h1 {
+    font-family: "Grand Hotel", "Brush Script MT", cursive;
+    font-weight: 400;
+    font-size: clamp(48px, 9.5vw, 104px);
+    letter-spacing: .01em;
+    margin: 0;
+    color: var(--sign-cream);
+    /* painted script lettering raised off the boards */
+    text-shadow:
+      0 1px 0 rgba(255,255,255,.12),
+      0 2px 2px rgba(0,0,0,.45),
+      0 4px 1px rgba(0,0,0,.22);
+  }
+
+  .ledger {
+    font-size: 12px;
+    color: rgba(242,231,206,.62);
+    text-align: right;
+    line-height: 1.7;
+  }
+  .ledger b { color: var(--lantern); font-weight: 600; }
+
+  /* ---------- filter rail ---------- */
+  .filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 18px clamp(18px, 5vw, 64px);
+    border-bottom: 1px dashed rgba(27,26,23,.3);
+  }
+  .filters .rail-label {
+    font-size: 11px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-right: 6px;
+  }
+
+  .chip {
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 13px;
+    border: 1.5px solid var(--ink);
+    border-radius: 40px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: transform .12s ease, background-color .12s ease, color .12s ease;
+  }
+  .chip .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 0 1px rgba(27,26,23,.25);
+  }
+  .chip:hover { transform: translateY(-2px) rotate(-1deg); }
+  .chip[aria-pressed="true"] {
+    background: var(--c);
+    color: #fff;
+    border-color: var(--ink);
+    box-shadow: var(--shadow-pin);
+  }
+  .chip[aria-pressed="true"] .dot { background: #fff; }
+  .chip.clear { margin-left: auto; border-style: dotted; color: var(--ink-soft); }
+  .chip.clear:hover { color: var(--ink); }
+  .chip.edit-cats { border-style: dashed; color: var(--ink-soft); }
+  .chip.edit-cats:hover { color: var(--ink); transform: translateY(-2px) rotate(-1deg); }
+
+  /* who-filter rail sits just under the category rail */
+  .filters.who-filters { padding-top: 12px; padding-bottom: 14px; border-bottom: 1px dashed rgba(27,26,23,.3); }
+  .chip.who-chip { gap: 6px; }
+  .chip.who-chip[aria-pressed="true"] { background: var(--c); color: #fff; }
+
+  /* ---------- toolbar: search + sort ---------- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 16px clamp(18px, 5vw, 64px) 4px;
+  }
+  .search-wrap { position: relative; flex: 1 1 240px; min-width: 200px; }
+  .search-wrap::before {
+    content: "⌕";
+    position: absolute;
+    left: 13px; top: 50%; transform: translateY(-50%);
+    font-size: 17px; color: var(--ink-soft); pointer-events: none;
+  }
+  #search {
+    width: 100%;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 16px;
+    padding: 10px 14px 10px 36px;
+    border: 1.5px solid var(--ink);
+    border-radius: 40px;
+    background: var(--card);
+    color: var(--ink);
+  }
+  #search::placeholder { color: var(--ink-soft); }
+  #search:focus { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+  .sort-wrap { display: inline-flex; align-items: center; gap: 8px; }
+  .sort-wrap .rail-label { margin: 0; }
+  #sort {
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 40px;
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  #sort:focus { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+
+  /* ---------- board ---------- */
+  main {
+    padding: var(--gap) clamp(14px, 5vw, 64px) 80px;
+  }
+  .board {
+    display: grid;
+    /* minmax(0,1fr) lets a track shrink below its content, so a long word
+       or URL in a card wraps instead of stretching the whole column */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--gap);
+    align-items: start;
+  }
+
+  .column {
+    background: rgba(255,255,255,.32);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    min-height: 220px;
+    min-width: 0;            /* allow the column to shrink so cards wrap, not widen */
+    display: flex;
+    flex-direction: column;
+    transition: background-color .15s ease, box-shadow .15s ease;
+  }
+  .column.drag-over {
+    background: rgba(255,255,255,.7);
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
+
+  .col-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 13px 14px 11px;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .col-head h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 70;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--col-accent, var(--ink));
+    color: #fff;
+    min-width: 22px;
+    text-align: center;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+
+  .stack {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .empty-hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 22px 8px;
+    border: 1.5px dashed rgba(27,26,23,.28);
+    border-radius: var(--radius);
+  }
+
+  /* ---------- task card ---------- */
+  .card {
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    padding: 12px 12px 10px;
+    box-shadow: var(--shadow-pin);
+    cursor: grab;
+    position: relative;
+    min-width: 0;            /* never let card contents force the column wider */
+    transform: rotate(var(--tilt, 0deg));
+    transition: transform .14s ease, box-shadow .14s ease;
+    animation: drop-in .4s cubic-bezier(.2,.9,.3,1.2) both;
+  }
+  .card:hover { transform: rotate(0deg) translateY(-3px); box-shadow: var(--shadow-lift); }
+  .card:focus-within { outline: 2.5px solid var(--ink); outline-offset: 2px; }
+  .card.dragging { opacity: .55; transform: rotate(0); box-shadow: var(--shadow-lift); }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+
+  /* ink-stamp category tag */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--c);
+    padding: 3px 9px;
+    border-radius: 2px;
+    box-shadow: 1px 1px 0 rgba(27,26,23,.3);
+  }
+
+  /* who's-on-it badge */
+  .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--w);
+    border: 1.4px solid var(--w);
+    background: color-mix(in srgb, var(--w) 12%, transparent);
+    padding: 2px 8px 2px 6px;
+    border-radius: 40px;
+    white-space: nowrap;
+  }
+  .who::before {
+    content: "";
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--w);
+  }
+
+  /* due-date pill */
+  .due {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink-soft);
+    border: 1.4px solid rgba(27,26,23,.3);
+    background: rgba(27,26,23,.04);
+    padding: 2px 9px;
+    border-radius: 40px;
+    white-space: nowrap;
+  }
+  .due::before { content: "⏷"; font-size: 10px; transform: rotate(-90deg) translateX(1px); }
+  .due.overdue { color: var(--riso-red); border-color: var(--riso-red); background: color-mix(in srgb, var(--riso-red) 9%, transparent); }
+  .due.soon    { color: var(--riso-orange); border-color: var(--riso-orange); }
+
+  /* notes on the card — collapsed to a couple of lines by default so every
+     card stays the same height; a per-card toggle expands them in place */
+  .notes-block {
+    margin-top: 9px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .notes-block .notes-body {
+    font-style: italic;
+    line-height: 1.45;
+    white-space: pre-wrap;       /* preserve the user's own line breaks */
+    overflow-wrap: anywhere;     /* long words/URLs wrap downward, never sideways */
+    word-break: break-word;
+  }
+  .notes-block .notes-body::before { content: "🗒 "; font-style: normal; }
+  /* collapsed: clamp to two lines with an ellipsis */
+  .notes-block:not(.expanded) .notes-body {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .notes-toggle {
+    margin-top: 5px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    padding: 2px 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .notes-toggle:hover { color: var(--riso-blue); }
+  .notes-toggle:focus-visible { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+  .notes-toggle[hidden] { display: none; }
+
+  .card .text {
+    font-size: 14.5px;
+    line-height: 1.4;
+    font-weight: 500;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 11px;
+    opacity: 0;
+    transition: opacity .14s ease;
+  }
+  .card:hover .card-actions,
+  .card:focus-within .card-actions { opacity: 1; }
+  .icon-btn {
+    font-family: inherit;
+    border: 1.2px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    width: 26px; height: 24px;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 13px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background-color .1s ease, color .1s ease, transform .1s ease;
+  }
+  .icon-btn:hover { background: var(--ink); color: var(--card); }
+  .icon-btn:disabled { opacity: .25; cursor: not-allowed; }
+  .icon-btn.del { margin-left: auto; }
+  .icon-btn.del:hover { background: var(--riso-orange); border-color: var(--riso-orange); color:#fff; }
+
+  .card.hidden { display: none; }
+
+  /* ---------- composer ---------- */
+  .add-bar { margin-top: 26px; display: flex; justify-content: center; }
+  .add-btn {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 70;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .02em;
+    padding: 13px 26px;
+    background: var(--ink);
+    color: var(--board);
+    border: 1.5px solid var(--ink);
+    border-radius: 40px;
+    cursor: pointer;
+    box-shadow: var(--shadow-pin);
+    transition: transform .12s ease;
+  }
+  .add-btn:hover { transform: translateY(-2px) rotate(-1deg); }
+
+  dialog {
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    background: var(--card);
+    padding: 0;
+    width: min(440px, 92vw);
+    box-shadow: var(--shadow-lift);
+    color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(27,26,23,.45); backdrop-filter: blur(2px); }
+  .dialog-inner { padding: 22px 24px 24px; }
+  dialog h3 {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 70; font-weight: 800;
+    font-size: 22px; margin: 0 0 4px;
+    color: var(--evergreen);
+  }
+  dialog .sub { font-size: 12px; color: var(--ink-soft); margin: 0 0 18px; }
+  .field-label { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-soft); display:block; margin: 14px 0 7px; }
+  #task-text, #task-notes {
+    width: 100%;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 16px;  /* >=16px stops iOS from auto-zooming on focus */
+    padding: 11px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    background: #fff;
+    color: var(--ink);
+    resize: vertical;
+  }
+  #task-notes { line-height: 1.5; }
+  #task-text:focus, #task-notes:focus, .chip:focus-visible, .icon-btn:focus-visible, .add-btn:focus-visible { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+  .cat-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dialog-foot { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-primary, .btn-ghost {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 70; font-weight: 700; font-size: 14px;
+    padding: 11px 20px; border-radius: 40px; cursor: pointer; border: 1.5px solid var(--ink);
+  }
+  .btn-primary { background: var(--ink); color: var(--card); flex: 1; }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn-primary:hover { background: var(--riso-blue); border-color: var(--riso-blue); }
+  .btn-ghost:hover { background: rgba(27,26,23,.07); }
+  .btn-ghost.danger { color: var(--riso-orange); border-color: var(--riso-orange); }
+  .btn-ghost.danger:hover { background: var(--riso-orange); color: #fff; }
+  .btn-ghost[hidden] { display: none; }
+
+  .field-label .opt { text-transform: none; letter-spacing: 0; color: var(--ink-soft); opacity: .8; }
+  #task-due {
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 16px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    background: #fff;
+    color: var(--ink);
+  }
+  #task-due:focus { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+
+  /* ---------- category manager ---------- */
+  .cat-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .cat-row {
+    display: flex; align-items: center; gap: 9px;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 7px 8px 7px 10px;
+    background: #fff;
+  }
+  .cat-row .swatch-btn {
+    flex: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink);
+    background: var(--c);
+    cursor: pointer;
+    box-shadow: 0 0 0 2px var(--card);
+  }
+  .cat-row .swatch-btn:hover { transform: scale(1.12); }
+  .cat-row .cat-row-name {
+    flex: 1;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 15px;
+    padding: 6px 8px;
+    border: 1.5px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ink);
+  }
+  .cat-row .cat-row-name:focus { outline: none; border-color: var(--riso-blue); background: #fff; }
+  .cat-row .cat-count { font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+  .cat-row .cat-row-del {
+    flex: none;
+    width: 28px; height: 26px;
+    border: 1.2px solid var(--ink);
+    border-radius: 3px;
+    background: transparent; color: var(--ink);
+    cursor: pointer; line-height: 1; font-size: 13px;
+  }
+  .cat-row .cat-row-del:hover { background: var(--riso-red); border-color: var(--riso-red); color: #fff; }
+  .cat-row .cat-row-del:disabled { opacity: .25; cursor: not-allowed; }
+
+  .cat-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px dashed rgba(27,26,23,.3); }
+  #cat-name {
+    flex: 1 1 160px;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 16px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    background: #fff; color: var(--ink);
+  }
+  #cat-name:focus { outline: 2.5px solid var(--riso-blue); outline-offset: 2px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+  .swatches .swatch-btn {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1.5px solid var(--ink); background: var(--c); cursor: pointer;
+  }
+  .swatches .swatch-btn[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+  .cat-add .btn-primary { flex: 0 0 auto; }
+
+  @keyframes drop-in {
+    from { opacity: 0; transform: translateY(-10px) rotate(0); }
+    to   { opacity: 1; transform: rotate(var(--tilt, 0deg)); }
+  }
+
+  /* staggered load for columns */
+  .column { animation: col-in .5s ease both; }
+  .column:nth-child(1){ animation-delay: .05s; }
+  .column:nth-child(2){ animation-delay: .12s; }
+  .column:nth-child(3){ animation-delay: .19s; }
+  .column:nth-child(4){ animation-delay: .26s; }
+  @keyframes col-in { from { opacity: 0; transform: translateY(16px); } to { opacity:1; transform:none; } }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 880px) {
+    .board {
+      grid-template-columns: none;
+      grid-auto-flow: column;
+      grid-auto-columns: 78%;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: 14px;
+    }
+    .column { scroll-snap-align: start; }
+    .ledger { display: none; }
+  }
+  @media (max-width: 520px) {
+    .board { grid-auto-columns: 86%; }
+  }
+
+  /* touch devices have no hover: keep card controls visible and finger-sized */
+  @media (hover: none), (pointer: coarse) {
+    .card-actions { opacity: 1; }
+    .icon-btn { width: 40px; height: 36px; font-size: 16px; }
+    .card { cursor: default; }
+    .chip { padding: 9px 15px; }
+    .add-btn { padding: 15px 30px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after { animation: none !important; transition: none !important; }
+    .card { transform: none !important; }
+  }
+</style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-row">
+      <div class="wordmark">
+        <h1>Grophie's To&#8209;Do</h1>
+      </div>
+      <div class="ledger">
+        <div><b id="stat-open">0</b> on the list</div>
+        <div><b id="stat-done">0</b> wrapped up</div>
+        <div id="stat-date"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search tasks & notes…" aria-label="Search tasks" autocomplete="off" />
+    </div>
+    <label class="sort-wrap">
+      <span class="rail-label">Sort</span>
+      <select id="sort" aria-label="Sort tasks">
+        <option value="added">Date added</option>
+        <option value="due">Due date</option>
+        <option value="alpha">A → Z</option>
+      </select>
+    </label>
+  </div>
+
+  <nav class="filters" id="filters" aria-label="Filter by category">
+    <span class="rail-label">Category</span>
+    <!-- chips injected -->
+    <button class="chip edit-cats" id="edit-cats" type="button">&#9998; edit</button>
+    <button class="chip clear" id="clear-filters" type="button">show all</button>
+  </nav>
+
+  <nav class="filters who-filters" id="who-filters" aria-label="Filter by who's on it">
+    <span class="rail-label">Who</span>
+    <!-- who chips injected -->
+  </nav>
+
+  <main>
+    <div class="board" id="board"><!-- columns injected --></div>
+    <div class="add-bar">
+      <button class="add-btn" id="open-add" type="button">+ Add New Task</button>
+    </div>
+  </main>
+
+  <dialog id="task-dialog">
+    <form method="dialog" class="dialog-inner" id="task-form">
+      <h3 id="dialog-title">New task</h3>
+      <p class="sub" id="dialog-sub">It lands in <b>To Do</b> — drag it, or use the arrows, from there.</p>
+
+      <label class="field-label" for="task-text">What needs doing</label>
+      <textarea id="task-text" rows="2" placeholder="e.g. Groceries" required></textarea>
+
+      <span class="field-label">Category</span>
+      <div class="cat-grid" id="cat-grid"><!-- category chips injected --></div>
+
+      <span class="field-label">Who's on it</span>
+      <div class="cat-grid" id="who-grid"><!-- who chips injected --></div>
+
+      <label class="field-label" for="task-due">Due date <span class="opt">— optional, leave blank for none</span></label>
+      <input id="task-due" type="date" />
+
+      <label class="field-label" for="task-notes">Notes</label>
+      <textarea id="task-notes" rows="5" placeholder="Add a list or details — milk, eggs, bread…"></textarea>
+
+      <div class="dialog-foot">
+        <button class="btn-primary" id="save-btn" type="submit" value="save">Add to board</button>
+        <button class="btn-ghost danger" id="delete-btn" type="button" hidden>Delete</button>
+        <button class="btn-ghost" type="button" id="cancel-btn">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="cat-dialog">
+    <div class="dialog-inner">
+      <h3>Categories</h3>
+      <p class="sub">Add, rename, recolor (tap the dot), or remove the labels you file tasks under. Shared with the other phone.</p>
+      <div class="cat-list" id="cat-list"><!-- rows injected --></div>
+      <form class="cat-add" id="cat-form">
+        <input id="cat-name" type="text" placeholder="New category" maxlength="40" autocomplete="off" />
+        <div class="swatches" id="cat-swatches"><!-- color swatches injected --></div>
+        <button class="btn-primary" type="submit">Add</button>
+      </form>
+      <div class="dialog-foot">
+        <button class="btn-ghost" type="button" id="cat-done">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+<script>
+(() => {
+  "use strict";
+
+  // category palette — the colors a category (filter) can wear
+  const PALETTE = [
+    "var(--riso-pink)", "var(--riso-blue)", "var(--riso-purple)", "var(--riso-orange)",
+    "var(--riso-green)", "var(--riso-yellow)", "var(--riso-teal)", "var(--riso-red)",
+    "var(--riso-brown)", "var(--riso-navy)",
+  ];
+
+  // categories are editable & shared via the server — this is just the first-run default
+  const DEFAULT_CATEGORIES = [
+    { name: "Cats",     color: "var(--riso-pink)"   },
+    { name: "Vacation", color: "var(--riso-blue)"   },
+    { name: "Work",     color: "var(--riso-purple)" },
+    { name: "House",    color: "var(--riso-orange)" },
+    { name: "Chores",   color: "var(--riso-green)"  },
+    { name: "Life",     color: "var(--riso-yellow)" },
+    { name: "Finance",  color: "var(--riso-teal)"   },
+  ];
+
+  const COLUMNS = [
+    { id: "todo",     name: "To Do",       accent: "var(--ink)" },
+    { id: "progress", name: "In Progress", accent: "var(--riso-blue)" },
+    { id: "review",   name: "Review",      accent: "var(--riso-purple)" },
+    { id: "done",     name: "Done",        accent: "var(--riso-green)" },
+  ];
+
+  // who's on it — assignee tags
+  const WHO = {
+    Soph:    "var(--who-soph)",
+    Grant:   "var(--who-grant)",
+    Grophie: "var(--who-grophie)",
+    Either:  "var(--who-either)",
+  };
+
+  const STORE_KEY = "riso-board-v1";
+
+  const SEED = [
+    { id: id(), text: "Buy cat food",   category: "Cats",     column: "todo",     createdAt: 1 },
+    { id: id(), text: "Email boss",     category: "Work",     column: "todo",     createdAt: 2 },
+    { id: id(), text: "Fix sink",       category: "House",    column: "progress", createdAt: 3 },
+    { id: id(), text: "Plan trip",      category: "Vacation", column: "review",   createdAt: 4 },
+    { id: id(), text: "Grocery run",    category: "Chores",   column: "done",     createdAt: 5 },
+  ];
+
+  function id() { return "t" + Math.random().toString(36).slice(2, 9); }
+  function now() { return Date.now(); }
+
+  const API = "/api/tasks";
+
+  let tasks = [];
+  let categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
+  let activeFilters = new Set();   // category filter — empty = all categories
+  let activeWho = new Set();       // who filter — empty = anyone
+  let searchQuery = "";            // lower-cased free-text search
+  let sortMode = "added";          // "added" | "due" | "alpha"
+  let dragId = null;
+  let dirty = false;               // local edits not yet confirmed saved to server
+  let saveTimer = null;
+  const expandedNotes = new Set(); // task ids whose notes are expanded (UI-only, not saved)
+
+  // ---- category helpers ----
+  function catColor(name) {
+    const c = categories.find(c => c.name === name);
+    return c ? c.color : "var(--ink)";
+  }
+  function nextPaletteColor() {
+    const used = new Set(categories.map(c => c.color));
+    return PALETTE.find(p => !used.has(p)) || PALETTE[categories.length % PALETTE.length];
+  }
+
+  // older boards stored tasks under the "Groceries" label — fold them into "Chores"
+  function migrate() {
+    let changed = false;
+    for (const t of tasks) {
+      if (t.category === "Groceries") { t.category = "Chores"; changed = true; }
+    }
+    return changed;
+  }
+
+  function cacheLocal() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ tasks, categories })); } catch (e) {}
+  }
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (Array.isArray(data)) return { tasks: data, categories: null }; // legacy shape
+        return { tasks: data.tasks || [], categories: data.categories || null };
+      }
+    } catch (e) {}
+    return { tasks: SEED.slice(), categories: null };
+  }
+
+  // pull the shared household board from the server; fall back to local cache when offline
+  async function loadFromServer() {
+    try {
+      const res = await fetch(API, { cache: "no-store" });
+      if (!res.ok) throw 0;
+      const data = await res.json();
+      if (data && Array.isArray(data.tasks)) {
+        tasks = data.tasks;
+        if (Array.isArray(data.categories) && data.categories.length) categories = data.categories;
+        cacheLocal();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // each change writes the whole board: cache instantly, push to the server (debounced)
+  function save() {
+    cacheLocal();
+    dirty = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(pushToServer, 250);
+  }
+  async function pushToServer() {
+    try {
+      const res = await fetch(API, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks, categories }),
+      });
+      if (res.ok) dirty = false;   // stay dirty (retry on next save) if the write failed
+    } catch (e) {}
+  }
+
+  // pick up the other phone's edits; never clobber an active drag, open dialog, or unsaved change
+  async function poll() {
+    if (document.hidden || dirty || dragId || dialog.open || catDialog.open) return;
+    try {
+      const res = await fetch(API, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !Array.isArray(data.tasks)) return;
+      const cats = Array.isArray(data.categories) && data.categories.length ? data.categories : categories;
+      if (JSON.stringify(data.tasks) !== JSON.stringify(tasks) ||
+          JSON.stringify(cats) !== JSON.stringify(categories)) {
+        tasks = data.tasks;
+        categories = cats;
+        cacheLocal();
+        buildFilters();
+        renderCards();
+      }
+    } catch (e) {}
+  }
+
+  // deterministic small tilt per card so the layout is stable across renders
+  function tiltFor(tid) {
+    let h = 0;
+    for (const ch of tid) h = (h * 31 + ch.charCodeAt(0)) % 1000;
+    return ((h % 7) - 3) * 0.6; // -1.8deg .. +1.8deg
+  }
+
+  // turn a stored "YYYY-MM-DD" due date into a friendly label + urgency class
+  function dueInfo(t) {
+    if (!t.due) return null;
+    const parts = t.due.split("-").map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [y, m, d] = parts;
+    const due = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((due - today) / 86400000);
+    let label;
+    if (days === 0) label = "Today";
+    else if (days === 1) label = "Tomorrow";
+    else if (days === -1) label = "Yesterday";
+    else label = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const cls = days < 0 ? "overdue" : days <= 2 ? "soon" : "";
+    return { label, overdue: days < 0, soon: days >= 0 && days <= 2, cls };
+  }
+
+  // ---------- render ----------
+  const boardEl = document.getElementById("board");
+  const filtersEl = document.getElementById("filters");
+  const whoFiltersEl = document.getElementById("who-filters");
+  const clearBtn = document.getElementById("clear-filters");
+  const editCatsBtn = document.getElementById("edit-cats");
+  const searchInput = document.getElementById("search");
+  const sortSelect = document.getElementById("sort");
+
+  // rebuild the category filter chips (called on load and whenever categories change)
+  function buildFilters() {
+    // drop stale filters for categories that no longer exist
+    for (const name of [...activeFilters]) if (!categories.some(c => c.name === name)) activeFilters.delete(name);
+    filtersEl.querySelectorAll(".chip:not(.clear):not(.edit-cats)").forEach(c => c.remove());
+    for (const cat of categories) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.style.setProperty("--c", cat.color);
+      chip.setAttribute("aria-pressed", String(activeFilters.has(cat.name)));
+      chip.innerHTML = `<span class="dot"></span>${cat.name}`;
+      chip.addEventListener("click", () => toggleSetFilter(activeFilters, cat.name, chip));
+      filtersEl.insertBefore(chip, editCatsBtn);
+    }
+  }
+
+  // who's-on-it filter chips (assignees never change, so build once)
+  function buildWhoFilters() {
+    for (const [name, color] of Object.entries(WHO)) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip who-chip";
+      chip.style.setProperty("--c", color);
+      chip.setAttribute("aria-pressed", "false");
+      chip.innerHTML = `<span class="dot"></span>${name}`;
+      chip.addEventListener("click", () => toggleSetFilter(activeWho, name, chip));
+      whoFiltersEl.appendChild(chip);
+    }
+  }
+
+  function toggleSetFilter(set, name, chip) {
+    if (set.has(name)) { set.delete(name); chip.setAttribute("aria-pressed", "false"); }
+    else { set.add(name); chip.setAttribute("aria-pressed", "true"); }
+    applyFilters();
+  }
+
+  // "show all" wipes every active filter and the search box
+  clearBtn.addEventListener("click", () => {
+    activeFilters.clear();
+    activeWho.clear();
+    searchQuery = "";
+    searchInput.value = "";
+    document.querySelectorAll(".filters .chip:not(.clear):not(.edit-cats)").forEach(c => c.setAttribute("aria-pressed", "false"));
+    applyFilters();
+  });
+
+  searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  sortSelect.addEventListener("change", () => { sortMode = sortSelect.value; renderCards(); });
+
+  function visible(t) {
+    if (activeFilters.size && !activeFilters.has(t.category)) return false;
+    if (activeWho.size && !activeWho.has(t.who || "")) return false;
+    if (searchQuery) {
+      const hay = (t.text + " " + (t.notes || "") + " " + (t.category || "")).toLowerCase();
+      if (!hay.includes(searchQuery)) return false;
+    }
+    return true;
+  }
+
+  // order a column's tasks per the active sort mode
+  function sortTasks(arr) {
+    const a = arr.slice();
+    if (sortMode === "alpha") {
+      a.sort((x, y) => x.text.localeCompare(y.text, undefined, { sensitivity: "base" }));
+    } else if (sortMode === "due") {
+      // soonest first; tasks with no due date sink to the bottom
+      a.sort((x, y) => {
+        const dx = x.due || "", dy = y.due || "";
+        if (dx && dy) return dx < dy ? -1 : dx > dy ? 1 : 0;
+        if (dx) return -1;
+        if (dy) return 1;
+        return (x.createdAt || 0) - (y.createdAt || 0);
+      });
+    } else {
+      a.sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
+    }
+    return a;
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    for (const col of COLUMNS) {
+      const colEl = document.createElement("section");
+      colEl.className = "column";
+      colEl.dataset.col = col.id;
+      colEl.style.setProperty("--col-accent", col.accent);
+      colEl.innerHTML = `
+        <div class="col-head">
+          <h2>${col.name}</h2>
+          <span class="count" data-count="${col.id}">0</span>
+        </div>
+        <div class="stack" data-stack="${col.id}"></div>`;
+
+      // drag targets
+      colEl.addEventListener("dragover", (e) => { e.preventDefault(); colEl.classList.add("drag-over"); });
+      colEl.addEventListener("dragleave", () => colEl.classList.remove("drag-over"));
+      colEl.addEventListener("drop", (e) => {
+        e.preventDefault();
+        colEl.classList.remove("drag-over");
+        if (dragId) moveTo(dragId, col.id);
+      });
+      boardEl.appendChild(colEl);
+    }
+    renderCards();
+  }
+
+  function renderCards() {
+    for (const col of COLUMNS) {
+      const stack = boardEl.querySelector(`[data-stack="${col.id}"]`);
+      stack.innerHTML = "";
+      const items = sortTasks(tasks.filter(t => t.column === col.id));
+      const shown = items.filter(visible);
+
+      for (const t of items) stack.appendChild(cardEl(t));
+
+      if (shown.length === 0) {
+        const hint = document.createElement("div");
+        hint.className = "empty-hint";
+        hint.textContent = items.length ? "Nothing matches the filter" : "Drop a task here";
+        stack.appendChild(hint);
+      }
+    }
+    updateCounts();
+    updateNoteToggles();
+  }
+
+  // show the "more/less" toggle only when the notes are long enough to be clamped
+  function updateNoteToggles() {
+    boardEl.querySelectorAll(".notes-block").forEach((block) => {
+      const body = block.querySelector(".notes-body");
+      const toggle = block.querySelector(".notes-toggle");
+      if (block.classList.contains("expanded")) { toggle.hidden = false; return; }
+      toggle.hidden = body.scrollHeight - body.clientHeight <= 1;
+    });
+  }
+
+  function cardEl(t) {
+    const idx = COLUMNS.findIndex(c => c.id === t.column);
+    const el = document.createElement("article");
+    el.className = "card" + (visible(t) ? "" : " hidden");
+    el.draggable = true;
+    el.dataset.id = t.id;
+    el.style.setProperty("--c", catColor(t.category));
+    el.style.setProperty("--tilt", tiltFor(t.id) + "deg");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    const noteHint = (t.notes && t.notes.trim()) ? ", has notes" : "";
+    const due = dueInfo(t);
+    const dueHint = due ? `, due ${due.label}${due.overdue ? " (overdue)" : ""}` : "";
+    el.setAttribute("aria-label",
+      `${t.text} — ${t.category}${t.who ? ", " + t.who : ""}, in ${COLUMNS[idx].name}${dueHint}${noteHint}. Open to edit.`);
+
+    const whoBadge = WHO[t.who]
+      ? `<span class="who" style="--w:${WHO[t.who]}">${t.who}</span>` : "";
+    const dueBadge = due
+      ? `<span class="due ${t.column === "done" ? "" : due.cls}">${due.label}</span>` : "";
+
+    el.innerHTML = `
+      <div class="card-top">
+        <span class="stamp">${t.category}</span>
+        ${whoBadge}
+      </div>
+      <div class="text"></div>
+      ${dueBadge}
+      <div class="notes-block" hidden>
+        <div class="notes-body"></div>
+        <button class="notes-toggle" type="button" hidden></button>
+      </div>
+      <div class="card-actions">
+        <button class="icon-btn move-l" title="Move left"  aria-label="Move left"  ${idx === 0 ? "disabled" : ""}>&#9664;</button>
+        <button class="icon-btn move-r" title="Move right" aria-label="Move right" ${idx === COLUMNS.length - 1 ? "disabled" : ""}>&#9654;</button>
+        <button class="icon-btn del" title="Delete task" aria-label="Delete task">&#10005;</button>
+      </div>`;
+    el.querySelector(".text").textContent = t.text;
+
+    if (t.notes && t.notes.trim()) {
+      const block = el.querySelector(".notes-block");
+      const body = block.querySelector(".notes-body");
+      const toggle = block.querySelector(".notes-toggle");
+      block.hidden = false;
+      body.textContent = t.notes.trim();
+      const setLabel = (exp) => { toggle.textContent = exp ? "▴ less" : "▾ more"; };
+      block.classList.toggle("expanded", expandedNotes.has(t.id));
+      setLabel(expandedNotes.has(t.id));
+      // toggle expand/collapse without opening the editor or persisting anything
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const exp = !block.classList.contains("expanded");
+        block.classList.toggle("expanded", exp);
+        if (exp) expandedNotes.add(t.id); else expandedNotes.delete(t.id);
+        setLabel(exp);
+      });
+    }
+
+    el.addEventListener("dragstart", () => { dragId = t.id; el.classList.add("dragging"); });
+    el.addEventListener("dragend", () => { dragId = null; el.classList.remove("dragging"); });
+
+    // clicking the card body (not the action buttons) opens the editor
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".card-actions")) return;
+      openEditor(t.id);
+    });
+
+    const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    el.querySelector(".move-l").addEventListener("click", stop(() => shift(t.id, -1)));
+    el.querySelector(".move-r").addEventListener("click", stop(() => shift(t.id, +1)));
+    el.querySelector(".del").addEventListener("click", stop(() => removeTask(t.id)));
+
+    // keyboard: Enter/Space opens editor, ← / → move, Delete removes
+    // (only when the card itself is focused — not its inner buttons)
+    el.addEventListener("keydown", (e) => {
+      if (e.target !== el) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditor(t.id); }
+      else if (e.key === "ArrowLeft")  { e.preventDefault(); shift(t.id, -1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); shift(t.id, +1); }
+      else if (e.key === "Delete") { e.preventDefault(); removeTask(t.id); }
+    });
+
+    return el;
+  }
+
+  function updateCounts() {
+    for (const col of COLUMNS) {
+      const n = tasks.filter(t => t.column === col.id && visible(t)).length;
+      boardEl.querySelector(`[data-count="${col.id}"]`).textContent = n;
+    }
+    // masthead tallies honor the active category filter, too
+    const shown = tasks.filter(visible);
+    const done = shown.filter(t => t.column === "done").length;
+    document.getElementById("stat-open").textContent = shown.length - done;
+    document.getElementById("stat-done").textContent = done;
+  }
+
+  function applyFilters() { renderCards(); }
+
+  // ---------- mutations ----------
+  function moveTo(tid, colId) {
+    const t = tasks.find(x => x.id === tid);
+    if (!t || t.column === colId) return;
+    t.column = colId;
+    save(); renderCards(); focusCard(tid);
+  }
+  function shift(tid, dir) {
+    const t = tasks.find(x => x.id === tid);
+    if (!t) return;
+    const i = COLUMNS.findIndex(c => c.id === t.column);
+    const ni = i + dir;
+    if (ni < 0 || ni >= COLUMNS.length) return;
+    t.column = COLUMNS[ni].id;
+    save(); renderCards(); focusCard(tid);
+  }
+  function removeTask(tid) {
+    tasks = tasks.filter(x => x.id !== tid);
+    save(); renderCards();
+  }
+  function focusCard(tid) {
+    const el = boardEl.querySelector(`.card[data-id="${tid}"]`);
+    if (el) el.focus();
+  }
+
+  // ---------- task editor (handles both new and existing tasks) ----------
+  const dialog = document.getElementById("task-dialog");
+  const catGrid = document.getElementById("cat-grid");
+  const whoGrid = document.getElementById("who-grid");
+  const taskText = document.getElementById("task-text");
+  const taskNotes = document.getElementById("task-notes");
+  const taskDue = document.getElementById("task-due");
+  const form = document.getElementById("task-form");
+  const deleteBtn = document.getElementById("delete-btn");
+  const saveBtn = document.getElementById("save-btn");
+  const dialogTitle = document.getElementById("dialog-title");
+  const dialogSub = document.getElementById("dialog-sub");
+
+  let editingId = null;                          // null = creating a new task
+  let chosenCat = categories[0] && categories[0].name;
+  let chosenWho = "";                            // "" = unassigned
+
+  // render a row of single-select chips from [name, color] pairs;
+  // `allowNone` adds a leading "unassigned" chip
+  function buildChips(grid, pairs, onPick, allowNone, noneLabel) {
+    grid.innerHTML = "";
+    const mk = (name, color) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.dataset.value = name;
+      if (color) chip.style.setProperty("--c", color);
+      chip.innerHTML = (color ? `<span class="dot"></span>` : "") + (name || noneLabel);
+      chip.addEventListener("click", () => onPick(name));
+      grid.appendChild(chip);
+    };
+    if (allowNone) mk("", null);
+    for (const [name, color] of pairs) mk(name, color);
+  }
+
+  function syncChips(grid, chosen) {
+    grid.querySelectorAll(".chip").forEach(c =>
+      c.setAttribute("aria-pressed", String(c.dataset.value === chosen)));
+  }
+
+  // category chips are rebuilt whenever the category list changes
+  function buildEditorCatChips() {
+    buildChips(catGrid, categories.map(c => [c.name, c.color]),
+      (n) => { chosenCat = n; syncChips(catGrid, n); });
+    syncChips(catGrid, chosenCat);
+  }
+  function buildEditorChips() {
+    buildEditorCatChips();
+    buildChips(whoGrid, Object.entries(WHO),
+      (n) => { chosenWho = n; syncChips(whoGrid, n); }, true, "No one yet");
+  }
+
+  function openEditor(tid) {
+    const t = tid ? tasks.find(x => x.id === tid) : null;
+    const fallbackCat = categories[0] && categories[0].name;
+    editingId = t ? t.id : null;
+    chosenCat = t ? (t.category || fallbackCat) : fallbackCat;
+    chosenWho = t ? (t.who || "") : "";
+    taskText.value = t ? t.text : "";
+    taskNotes.value = t ? (t.notes || "") : "";
+    taskDue.value = t ? (t.due || "") : "";
+    dialogTitle.textContent = t ? "Edit task" : "New task";
+    dialogSub.innerHTML = t
+      ? `In <b>${COLUMNS.find(c => c.id === t.column).name}</b> — set a due date, jot notes, or pick who's on it.`
+      : `It lands in <b>To Do</b> — drag it, or use the arrows, from there.`;
+    saveBtn.textContent = t ? "Save changes" : "Add to board";
+    deleteBtn.hidden = !t;
+    syncChips(catGrid, chosenCat);
+    syncChips(whoGrid, chosenWho);
+    dialog.showModal();
+    taskText.focus();
+  }
+
+  document.getElementById("open-add").addEventListener("click", () => openEditor(null));
+  document.getElementById("cancel-btn").addEventListener("click", () => dialog.close());
+  deleteBtn.addEventListener("click", () => {
+    if (editingId) removeTask(editingId);
+    dialog.close();
+  });
+
+  form.addEventListener("submit", (e) => {
+    if (!taskText.value.trim()) { e.preventDefault(); return; }
+    const fields = {
+      text: taskText.value.trim(),
+      category: chosenCat,
+      who: chosenWho,
+      due: taskDue.value || "",
+      notes: taskNotes.value.trim(),
+    };
+    if (editingId) {
+      const t = tasks.find(x => x.id === editingId);
+      if (t) Object.assign(t, fields);
+    } else {
+      tasks.push({ id: id(), column: "todo", createdAt: now(), ...fields });
+    }
+    save(); renderCards();
+    dialog.close();
+  });
+
+  // ---------- category manager ----------
+  const catDialog = document.getElementById("cat-dialog");
+  const catListEl = document.getElementById("cat-list");
+  const catForm = document.getElementById("cat-form");
+  const catNameInput = document.getElementById("cat-name");
+  const catSwatchesEl = document.getElementById("cat-swatches");
+  let newCatColor = PALETTE[0];
+
+  function countFor(name) { return tasks.filter(t => t.category === name).length; }
+
+  // rebuild the management list: each row renames inline, recolors via the dot, or deletes
+  function renderCatList() {
+    catListEl.innerHTML = "";
+    categories.forEach((cat, i) => {
+      const row = document.createElement("div");
+      row.className = "cat-row";
+      row.style.setProperty("--c", cat.color);
+      const n = countFor(cat.name);
+      row.innerHTML = `
+        <button class="swatch-btn" type="button" title="Change color" aria-label="Change color"></button>
+        <input class="cat-row-name" value="" aria-label="Category name" maxlength="40" />
+        <span class="cat-count">${n ? n + (n === 1 ? " task" : " tasks") : "unused"}</span>
+        <button class="cat-row-del" type="button" title="Delete category" aria-label="Delete category" ${categories.length <= 1 ? "disabled" : ""}>&#10005;</button>`;
+      row.querySelector(".cat-row-name").value = cat.name;
+
+      // cycle to the next palette color on tap
+      row.querySelector(".swatch-btn").addEventListener("click", () => {
+        const idx = PALETTE.indexOf(cat.color);
+        cat.color = PALETTE[(idx + 1) % PALETTE.length];
+        row.style.setProperty("--c", cat.color);
+        save(); buildFilters(); buildEditorCatChips(); renderCards();
+      });
+
+      // rename, carrying every task on the old label over to the new one
+      const nameInput = row.querySelector(".cat-row-name");
+      const commitRename = () => {
+        const next = nameInput.value.trim();
+        if (!next || next === cat.name) { nameInput.value = cat.name; return; }
+        if (categories.some((c, j) => j !== i && c.name === next)) { nameInput.value = cat.name; return; }
+        const old = cat.name;
+        cat.name = next;
+        for (const t of tasks) if (t.category === old) t.category = next;
+        if (chosenCat === old) chosenCat = next;
+        if (activeFilters.has(old)) { activeFilters.delete(old); activeFilters.add(next); }
+        save(); buildFilters(); buildEditorCatChips(); renderCards();
+      };
+      nameInput.addEventListener("change", commitRename);
+      nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); nameInput.blur(); } });
+
+      row.querySelector(".cat-row-del").addEventListener("click", () => deleteCategory(i));
+      catListEl.appendChild(row);
+    });
+  }
+
+  function deleteCategory(i) {
+    if (categories.length <= 1) return;
+    const cat = categories[i];
+    const used = countFor(cat.name);
+    const fallback = (categories[i === 0 ? 1 : 0]).name;
+    if (used && !confirm(`Delete "${cat.name}"? Its ${used} task${used === 1 ? "" : "s"} will move to "${fallback}".`)) return;
+    categories.splice(i, 1);
+    for (const t of tasks) if (t.category === cat.name) t.category = fallback;
+    if (chosenCat === cat.name) chosenCat = fallback;
+    activeFilters.delete(cat.name);
+    save();
+    renderCatList(); buildFilters(); buildEditorCatChips(); renderCards();
+  }
+
+  function buildSwatches() {
+    catSwatchesEl.innerHTML = "";
+    for (const color of PALETTE) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "swatch-btn";
+      b.style.setProperty("--c", color);
+      b.setAttribute("aria-label", "Pick color");
+      b.setAttribute("aria-pressed", String(color === newCatColor));
+      b.addEventListener("click", () => {
+        newCatColor = color;
+        catSwatchesEl.querySelectorAll(".swatch-btn").forEach(s =>
+          s.setAttribute("aria-pressed", String(s.style.getPropertyValue("--c") === color)));
+      });
+      catSwatchesEl.appendChild(b);
+    }
+  }
+
+  function openCatManager() {
+    newCatColor = nextPaletteColor();
+    catNameInput.value = "";
+    renderCatList();
+    buildSwatches();
+    catDialog.showModal();
+  }
+
+  catForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = catNameInput.value.trim();
+    if (!name) return;
+    if (categories.some(c => c.name === name)) { catNameInput.value = ""; return; }
+    categories.push({ name, color: newCatColor });
+    save();
+    catNameInput.value = "";
+    newCatColor = nextPaletteColor();
+    renderCatList(); buildSwatches(); buildFilters(); buildEditorCatChips(); renderCards();
+  });
+
+  editCatsBtn.addEventListener("click", openCatManager);
+  document.getElementById("cat-done").addEventListener("click", () => catDialog.close());
+
+  // ---------- init ----------
+  document.getElementById("stat-date").textContent =
+    new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+  buildWhoFilters();
+  (async () => {
+    if (!await loadFromServer()) {
+      const local = loadLocal();
+      tasks = local.tasks;
+      if (Array.isArray(local.categories) && local.categories.length) categories = local.categories;
+    }
+    if (migrate()) save();        // fold any legacy "Groceries" tasks into "Chores"
+    chosenCat = categories[0] && categories[0].name;
+    buildFilters();
+    buildEditorChips();
+    buildBoard();
+    setInterval(poll, 4000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+  })();
+})();
+</script>
+</body>
+</html>

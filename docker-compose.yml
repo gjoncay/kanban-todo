@@ -1,0 +1,35 @@
+# Grophie's To-Do + Tailscale sidecar (per-app URL).
+# Full recipe & gotchas: ../app-template/TAILSCALE_SIDECAR.md
+#
+# Reachable only at https://todo.<your-tailnet>.ts.net (tailnet-only).
+# Start: `cp .env.example .env` + paste TS_AUTHKEY, then `docker compose up -d`.
+
+name: grophie-todo
+
+services:
+  # ---- the app: tiny Node server, board persisted to the tododata volume ----
+  todo:
+    build: .
+    restart: unless-stopped
+    # No `ports:` — Tailscale is the only ingress (stays off the LAN).
+    volumes:
+      - tododata:/data
+
+  # ---- Tailscale sidecar: https://todo.<your-tailnet>.ts.net ----
+  todo-ts:
+    image: tailscale/tailscale:latest
+    restart: unless-stopped
+    network_mode: service:todo            # shares todo's netns -> proxy 127.0.0.1:8080
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:?set TS_AUTHKEY in .env (see ../app-template/TAILSCALE_SIDECAR.md)}
+      - TS_HOSTNAME=todo                   # becomes the URL subdomain
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/todo.json
+    volumes:
+      - todotsdata:/var/lib/tailscale
+      - ./tailscale/todo.json:/config/todo.json:ro
+
+volumes:
+  tododata:
+  todotsdata:
